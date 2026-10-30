@@ -252,6 +252,35 @@ do_customize_prompts_menu() {
     apply_shell_customizations "$shell" "$banner_text" "$username" "$fig_font" "$color_style" "$prompt_sym" "$prompt_layout"
 }
 
+# Prompt colors follow the banner color style (xterm-256 numbers, left to right)
+prompt_palette() {
+    case "$1" in
+        matrix) PC=(34 40 46 82 118 82 46 40 46) ;;
+        cyber)  PC=(201 171 135 99 63 33 39 45 51) ;;
+        white)  PC=(255 255 255 255 255 255 255 255 255) ;;
+        *)      PC=(201 165 129 99 69 39 45 49 46) ;;
+    esac
+}
+
+xterm_hex() {
+    local n=$1 r g b v
+    if (( n >= 232 )); then
+        v=$(( 8 + (n - 232) * 10 )); printf '%02x%02x%02x' $v $v $v
+    else
+        n=$(( n - 16 )); r=$(( n / 36 )); g=$(( (n / 6) % 6 )); b=$(( n % 6 ))
+        for v in $r $g $b; do (( v > 0 )) && v=$(( 55 + v * 40 )); printf '%02x' $v; done
+    fi
+}
+
+apply_prompt_palette() {
+    local file=$1 style=$2 i n
+    prompt_palette "$style"
+    for i in 1 2 3 4 5 6 7 8 9; do
+        n=${PC[i-1]}
+        sed -i "s/__C${i}__/${n}/g; s/__H${i}__/$(xterm_hex "$n")/g" "$file"
+    done
+}
+
 apply_shell_customizations() {
     local shell=$1
     local banner_text=$2
@@ -340,24 +369,30 @@ EOF
 set_bash_prompt() {
     local EXIT="$?"
     local RED="\[\033[1;31m\]"
-    local GREEN="\[\033[1;32m\]"
-    local WHITE="\[\033[1;37m\]"
-    local CYAN="\[\033[1;36m\]"
+    local C1="\[\033[1;38;5;__C1__m\]"
+    local C2="\[\033[1;38;5;__C2__m\]"
+    local C3="\[\033[1;38;5;__C3__m\]"
+    local C4="\[\033[1;38;5;__C4__m\]"
+    local C5="\[\033[1;38;5;__C5__m\]"
+    local C6="\[\033[1;38;5;__C6__m\]"
+    local C7="\[\033[1;38;5;__C7__m\]"
+    local C8="\[\033[1;38;5;__C8__m\]"
+    local C9="\[\033[1;38;5;__C9__m\]"
     local RESET="\[\033[0m\]"
     local git_info=""
     if git rev-parse --is-inside-work-tree &>/dev/null; then
         local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
         if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
-            git_info=" \[\033[1;31m\](${branch}*)${RESET}"
+            git_info=" ${RED}(${branch}*)${RESET}"
         else
-            git_info=" \[\033[1;32m\](${branch})${RESET}"
+            git_info=" ${C8}(${branch})${RESET}"
         fi
     fi
-    local arrow="${GREEN}__SYMBOL__"
+    local arrow="${C9}__SYMBOL__"
     if [ "$EXIT" -ne 0 ]; then
         arrow="${RED}__SYMBOL__"
     fi
-    PS1="\n${RED}┌─[${GREEN}__USERNAME__${RED}@${WHITE}termux${RED}]─[${CYAN}\w${RED}]${git_info}\n${RED}└─╼ ${arrow} ${RESET}"
+    PS1="\n${C1}┌─[${C2}__USERNAME__${C3}@${C4}termux${C5}]─[${C6}\w${C7}]${git_info}\n${C1}└─╼ ${arrow} ${RESET}"
 }
 PROMPT_COMMAND=set_bash_prompt
 EOF
@@ -403,6 +438,7 @@ EOF
         
         sed -i "s/__USERNAME__/$username/g" ~/.bashrc
         sed -i "s/__SYMBOL__/$prompt_sym/g" ~/.bashrc
+        apply_prompt_palette ~/.bashrc "$color_style"
         
         cat << 'EOF' >> ~/.bashrc
 alias l='eza -la'
@@ -439,18 +475,18 @@ function parse_git_status() {
     git rev-parse --is-inside-work-tree &>/dev/null || return
     local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
     if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
-        echo " %{$fg_bold[red]%}(${branch}*)%{$reset_color%}"
+        echo " %B%F{196}(${branch}*)%f%b"
     else
-        echo " %{$fg_bold[green]%}(${branch})%{$reset_color%}"
+        echo " %B%F{__C8__}(${branch})%f%b"
     fi
 }
-local user_info="%{$fg_bold[red]%}[%{$fg_bold[green]%}__USERNAME__%{$fg_bold[red]%}@%{$fg_bold[white]%}termux%{$fg_bold[red]%}]"
-local current_dir="%{$fg_bold[red]%}[%{$fg_bold[cyan]%}%(5~|%-1~/…/%2~|%4~)%{$fg_bold[red]%}]"
+local user_info="%B%F{__C1__}[%F{__C2__}__USERNAME__%F{__C3__}@%F{__C4__}termux%F{__C5__}]"
+local current_dir="%B%F{__C5__}[%F{__C6__}%(5~|%-1~/…/%2~|%4~)%F{__C7__}]"
 local git_info='$(parse_git_status)'
-local status_arrow="%(?.%{$fg_bold[green]%}__SYMBOL__.%{$fg_bold[red]%}__SYMBOL__)"
+local status_arrow="%(?.%B%F{__C9__}__SYMBOL__.%B%F{196}__SYMBOL__)"
 PROMPT="
-%{$fg_bold[red]%}┌─${user_info}─${current_dir}${git_info}
-%{$fg_bold[red]%}└─╼ ${status_arrow} %{$reset_color%}"
+%B%F{__C1__}┌─${user_info}─${current_dir}${git_info}
+%B%F{__C1__}└─╼ ${status_arrow} %f%b"
 EOF
         elif [ "$prompt_layout" = "minimalist" ]; then
             cat << 'EOF' > "$theme_file"
@@ -479,6 +515,7 @@ EOF
         
         sed -i "s/__USERNAME__/$username/g" "$theme_file"
         sed -i "s/__SYMBOL__/$prompt_sym/g" "$theme_file"
+        apply_prompt_palette "$theme_file" "$color_style"
 
     elif [ "$shell" = "fish" ]; then
         mkdir -p ~/.config/fish
@@ -506,40 +543,40 @@ EOF
 function fish_prompt
     set -l last_status $status
     echo
-    set_color red
+    set_color -o __H1__
     printf "┌─["
-    set_color green
+    set_color -o __H2__
     echo -n "__USERNAME__"
-    set_color red
+    set_color -o __H3__
     echo -n "@"
-    set_color white
+    set_color -o __H4__
     echo -n "termux"
-    set_color red
+    set_color -o __H5__
     printf "]─["
-    set_color cyan
+    set_color -o __H6__
     echo -n (prompt_pwd)
-    set_color red
+    set_color -o __H7__
     echo -n "]"
     if command -v git >/dev/null 2>&1
         if git rev-parse --is-inside-work-tree >/dev/null 2>&1
             set -l branch (git symbolic-ref --short HEAD 2>/dev/null)
             set -l status_count (git status --porcelain 2>/dev/null | count)
             if test $status_count -gt 0
-                set_color red
+                set_color -o red
                 echo -n " ($branch*)"
             else
-                set_color green
+                set_color -o __H8__
                 echo -n " ($branch)"
             end
         end
     end
     echo
-    set_color red
+    set_color -o __H1__
     printf "└─╼ "
     if test $last_status -eq 0
-        set_color green
+        set_color -o __H9__
     else
-        set_color red
+        set_color -o red
     end
     printf "__SYMBOL__ "
     set_color normal
@@ -589,6 +626,7 @@ EOF
         
         sed -i "s/__USERNAME__/$username/g" ~/.config/fish/config.fish
         sed -i "s/__SYMBOL__/$prompt_sym/g" ~/.config/fish/config.fish
+        apply_prompt_palette ~/.config/fish/config.fish "$color_style"
     fi
     
     # Auto-switch shell to the chosen one

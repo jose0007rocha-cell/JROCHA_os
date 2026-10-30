@@ -9,7 +9,7 @@ if (( cols > 60 )); then BOX_WIDTH=58; else BOX_WIDTH=$(( cols - 2 )); fi
 (( BOX_WIDTH < 24 )) && BOX_WIDTH=24
 INNER=$(( BOX_WIDTH - 2 ))
 
-frame=$'\033[38;5;44m'
+frame=$'\033[1;38;5;80m'
 reset=$'\033[0m'
 
 case "$STYLE" in
@@ -22,11 +22,11 @@ esac
 hline() {
     local i
     printf '%s %s' "$frame" "$1"
-    for ((i = 0; i < INNER; i++)); do printf '─'; done
+    for ((i = 0; i < INNER; i++)); do printf '━'; done
     printf '%s%s\n' "$2" "$reset"
 }
 
-tick_row() { printf '%s │%*s│%s\n' "$frame" "$INNER" '' "$reset"; }
+tick_row() { printf '%s ┃%*s┃%s\n' "$frame" "$INNER" '' "$reset"; }
 
 # One line of figlet art, painted with a left-to-right gradient across its own width.
 paint_line() {
@@ -91,7 +91,7 @@ echo -e '\033[0m'
 sleep 0.2
 clear
 
-hline '┌' '┐'
+hline '┏' '┓'
 tick_row
 echo
 if (( FONT_H > 0 )); then
@@ -100,4 +100,4 @@ else
     printf '%*s%s\n' $(( (cols - ${#TEXT}) / 2 )) '' "$TEXT"
 fi
 tick_row
-hline '└' '┘'
+hline '┗' '┛'

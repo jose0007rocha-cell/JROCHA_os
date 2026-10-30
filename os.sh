@@ -645,17 +645,16 @@ EOF
     fi
     
     # Auto-switch shell to the chosen one
-    local target_shell_path=$(command -v "$shell")
-    if [ -n "$target_shell_path" ] && [ "$SHELL" != "$target_shell_path" ]; then
-        echo -e "${Y}[*] Auto-switching default shell to ${shell}...${RS}"
-        if [ -d /data/data/com.termux ] || [ -n "$TERMUX_VERSION" ]; then
-            # We are on Termux, chsh is passwordless
-                        chsh -s "$target_shell_path"
-        else
-            # Fallback for non-Termux systems
-            chsh -s "$target_shell_path" 2>/dev/null || echo -e "${R}[!] Please change shell manually with: chsh -s $target_shell_path${RS}"
-        fi
+    # Auto-switch shell to the chosen one
+local target_shell_path=$(command -v "$shell")
+if [ -n "$target_shell_path" ] && [ "$SHELL" != "$target_shell_path" ]; then
+    echo -e "${Y}[*] Auto-switching default shell to ${shell}...${RS}"
+    if [ -d /data/data/com.termux ] || [ -n "$TERMUX_VERSION" ]; then
+        chsh -s "$target_shell_path"
+    else
+        chsh -s "$target_shell_path" 2>/dev/null || echo -e "${R}[!] Please change shell manually with: chsh -s $target_shell_path${RS}"
     fi
+fi
     
     echo -e "\n${G}[√] Customizations applied to $shell!${RS}"
     echo -e "${Y}[*] Restart your terminal or run 'exec $shell' to see changes.${RS}"

@@ -74,9 +74,6 @@ Select and dynamically apply any of the 5 curated color themes:
 
 ## Theme Preview
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729988-7c0c2a39-fe78-4dc6-8174-1a220e0ee1e5.jpg" width="300">
-</p>
 
 ---
 

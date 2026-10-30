@@ -43,23 +43,23 @@ Secure your terminal with a login gate. If the password is failed 3 times, the s
 
 ### Extra Termux Keys
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729794-17dd4f17-19d0-4028-99b8-c7a88994d145.jpg" width="300">
+  <img src="assets/screenshots/extra-keys.jpg" width="300">
 </p>
 
 ### Custom Username Banner
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729923-9f0415aa-d0fd-46c7-86cb-1ef65affffcb.jpg" width="300">
+  <img src="assets/screenshots/banner.jpg" width="300">
 </p>
 
 ### Custom Zsh, Fish, and Bash Themes
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729435-7eea5d74-8474-427a-9ada-a8d50da91136.jpg" width="300">
+  <img src="assets/screenshots/themes.jpg" width="300">
 </p>
 
 ### Syntax Highlighting & Autosuggestions (Zsh, Fish, & Bash)
 Fully supported across Zsh (plugins), Fish (native), and Bash (powered by `ble.sh`).
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729854-a09be75c-5e3a-4a21-85b4-71191ee42bd2.jpg" width="300">
+  <img src="assets/screenshots/autosuggestions.jpg" width="300">
 </p>
 
 ### 🎨 Curated Termux Color Themes

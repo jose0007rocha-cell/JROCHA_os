@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150730092-337cd5de-f376-454a-9418-c884bdb5f5e0.png" width="900">
+  <img src="assets/banner.svg" width="900" alt="JROCHA">
 </p>
 <p align="center">
   <img src="https://img.shields.io/badge/Tool-JROCHA-green?style=flat-square">

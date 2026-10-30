@@ -72,7 +72,7 @@ Select and dynamically apply any of the 5 curated color themes:
 
 ---
 
-## Theme Preview
+
 
 
 ---

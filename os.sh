@@ -69,10 +69,6 @@ ensure_dependencies() {
 
 do_full_setup() {
     ensure_dependencies
-    if command -v gem &>/dev/null && ! command -v lolcat &>/dev/null; then
-        echo -e "${Y}[*] Installing lolcat gem...${RS}"
-        gem install lolcat -y 2>/dev/null || gem install lolcat
-    fi
     mkdir -p ~/.termux
     [ -f "$REPO_DIR/.object/.termux.properties" ] && cp "$REPO_DIR/.object/.termux.properties" ~/.termux/termux.properties
     [ -f "$REPO_DIR/.object/.colors.properties" ] && cp "$REPO_DIR/.object/.colors.properties" ~/.termux/colors.properties
@@ -280,81 +276,32 @@ apply_shell_customizations() {
         cp "$REPO_DIR/.object/ANSI Shadow.flf" "$figlet_dir/ASCII-Shadow.flf"
     fi
 
-    # CORREÇÃO APLICADA AQUI: Força o download da fonte se ela não existir, mesmo sendo a ASCII-Shadow
-    if [ ! -f "$figlet_dir/$fig_font.flf" ] || [ ! -s "$figlet_dir/$fig_font.flf" ]; then
-        echo -e "${Y}[*] Downloading figlet font: $fig_font...${RS}"
-        curl -s -L "https://raw.githubusercontent.com/patorjk/figlet.js/master/fonts/$fig_font.flf" -o "$figlet_dir/$fig_font.flf"
-        # Fallback if download failed
-        if [ ! -f "$figlet_dir/$fig_font.flf" ] || [ ! -s "$figlet_dir/$fig_font.flf" ]; then
-            echo -e "${R}[!] Failed to download $fig_font.flf, using Standard.${RS}"
-            fig_font="Standard"
-            if [ ! -f "$figlet_dir/Standard.flf" ]; then
-                curl -s -L "https://raw.githubusercontent.com/patorjk/figlet.js/master/fonts/Standard.flf" -o "$figlet_dir/Standard.flf"
+    # Ensure other selected standard fonts are downloaded if selected and missing
+    if [ "$fig_font" != "ASCII-Shadow" ]; then
+        if [ ! -f "$figlet_dir/$fig_font.flf" ]; then
+            echo -e "${Y}[*] Downloading figlet font: $fig_font...${RS}"
+            curl -s -L "https://raw.githubusercontent.com/patorjk/figlet.js/master/fonts/$fig_font.flf" -o "$figlet_dir/$fig_font.flf"
+            # Fallback if download failed
+            if [ ! -f "$figlet_dir/$fig_font.flf" ] || [ ! -s "$figlet_dir/$fig_font.flf" ]; then
+                echo -e "${R}[!] Failed to download $fig_font.flf, using Standard.${RS}"
+                fig_font="Standard"
+                if [ ! -f "$figlet_dir/Standard.flf" ]; then
+                    curl -s -L "https://raw.githubusercontent.com/patorjk/figlet.js/master/fonts/Standard.flf" -o "$figlet_dir/Standard.flf"
+                fi
             fi
         fi
     fi
 
     local banner_script="$HOME/.termux-os-banner.sh"
-    cat << 'EOF' > "$banner_script"
-#!/bin/bash
-clear
-echo -e '\033[1;32m[*] BOOTING JROCHA...'
-echo -ne '\033[1;36m[LOADING MODULES] \033[1;32m'
-for i in {1..25}; do echo -ne '█'; sleep 0.01; done
-echo -e '\033[0m'
-sleep 0.2
-clear
-
-BOX_WIDTH=56
-cyan='\033[0;36m'
-reset='\033[0m'
-EOF
-
-    echo "FIGLET_DIR=\"$figlet_dir\"" >> "$banner_script"
-
-    cat << 'EOF' >> "$banner_script"
-print_center() { local text="$1"; local len=${#text}; local space_len=$(( (BOX_WIDTH - 2 - len) / 2 )); printf "${cyan} ║%*s${reset}%s${cyan}%*s║${reset}\n" $space_len "" "$text" $(( BOX_WIDTH - 2 - len - space_len )) ""; }
-draw_line() { local char=$1; local end=$2; printf "${cyan} %s" "$char"; for ((i=0; i<BOX_WIDTH-2; i++)); do printf "═"; done; printf "%s${reset}\n" "$end"; }
-
-draw_line '╔' '╗'
-print_center ''
-EOF
-
-    if [ "$color_style" = "lolcat" ]; then
-        if command -v gem &>/dev/null && ! command -v lolcat &>/dev/null; then
-            gem install lolcat -y 2>/dev/null || gem install lolcat
-        fi
-        echo "figlet -d \"\$FIGLET_DIR\" -c -f '$fig_font' -w \$BOX_WIDTH '$banner_text' 2>/dev/null | lolcat 2>/dev/null || printf '  $banner_text\\n'" >> "$banner_script"
-    elif [ "$color_style" = "matrix" ]; then
-        echo "echo -e '\\033[1;32m'" >> "$banner_script"
-        echo "figlet -d \"\$FIGLET_DIR\" -c -f '$fig_font' -w \$BOX_WIDTH '$banner_text' 2>/dev/null || printf '  $banner_text\\n'" >> "$banner_script"
-        echo "echo -e '\\033[0m'" >> "$banner_script"
-    elif [ "$color_style" = "cyber" ]; then
-        echo "echo -e '\\033[1;36m'" >> "$banner_script"
-        echo "figlet -d \"\$FIGLET_DIR\" -c -f '$fig_font' -w \$BOX_WIDTH '$banner_text' 2>/dev/null || printf '  $banner_text\\n'" >> "$banner_script"
-        echo "echo -e '\\033[0m'" >> "$banner_script"
-    else
-        echo "echo -e '\\033[1;37m'" >> "$banner_script"
-        echo "figlet -d \"\$FIGLET_DIR\" -c -f '$fig_font' -w \$BOX_WIDTH '$banner_text' 2>/dev/null || printf '  $banner_text\\n'" >> "$banner_script"
-        echo "echo -e '\\033[0m'" >> "$banner_script"
-    fi
-    
-    cat << EOF >> "$banner_script"
-print_center ''
-print_center 'SYSTEM: ONLINE  |  USER: $username'
-if command -v termux-battery-status &>/dev/null; then
-    bat_info=\$(termux-battery-status | grep -E 'percentage|status' | tr -d '", ' | paste -sd ' | ')
-    [ -n "\$bat_info" ] && print_center "\$bat_info"
-fi
-if command -v free &>/dev/null; then
-    mem_info=\$(free -m | awk '/Mem:/ {print "RAM: " \$3 "MB / " \$2 "MB"}')
-    [ -n "\$mem_info" ] && print_center "\$mem_info"
-fi
-print_center 'SECURE CONNECTION ESTABLISHED'
-print_center ''
-draw_line '╚' '╝'
-EOF
-
+    {
+        echo '#!/bin/bash'
+        printf 'FIGLET_DIR=%q\n' "$figlet_dir"
+        printf 'FONT=%q\n' "$fig_font"
+        printf 'TEXT=%q\n' "$banner_text"
+        printf 'USER_NAME=%q\n' "$username"
+        printf 'STYLE=%q\n' "$color_style"
+        cat "$REPO_DIR/.object/banner_body.sh"
+    } > "$banner_script"
     chmod +x "$banner_script"
     if [ -f "$REPO_DIR/.object/ANSI Shadow.flf" ]; then
         mkdir -p "$PREFIX/share/figlet"
@@ -645,142 +592,630 @@ EOF
     fi
     
     # Auto-switch shell to the chosen one
-    # Auto-switch shell to the chosen one
-local target_shell_path=$(command -v "$shell")
-if [ -n "$target_shell_path" ] && [ "$SHELL" != "$target_shell_path" ]; then
-    echo -e "${Y}[*] Auto-switching default shell to ${shell}...${RS}"
-    if [ -d /data/data/com.termux ] || [ -n "$TERMUX_VERSION" ]; then
-        chsh -s "$target_shell_path"
-    else
-        chsh -s "$target_shell_path" 2>/dev/null || echo -e "${R}[!] Please change shell manually with: chsh -s $target_shell_path${RS}"
+    local target_shell_path=$(command -v "$shell")
+    if [ -n "$target_shell_path" ] && [ "$SHELL" != "$target_shell_path" ]; then
+        echo -e "${Y}[*] Auto-switching default shell to ${shell}...${RS}"
+        if [ -d /data/data/com.termux ] || [ -n "$TERMUX_VERSION" ]; then
+            # We are on Termux, chsh is passwordless
+            chsh -s "$target_shell_path" &>/dev/null
+        else
+            # We are on standard Linux, chsh might require password
+            echo -e "${Y}[!] You may be prompted for your password to change the default shell.${RS}"
+            chsh -s "$target_shell_path"
+        fi
+        echo -e "${G}[√] Shell auto-switched! Reloading session into ${shell} now...${RS}"
+        sleep 2
+        exec "$target_shell_path"
     fi
-fi
-    
-    echo -e "\n${G}[√] Customizations applied to $shell!${RS}"
-    echo -e "${Y}[*] Restart your terminal or run 'exec $shell' to see changes.${RS}"
-    sleep 3
-    menu
-}
 
-# Menu definitions
-bash_menu() {
-    banner
-    printf "\n${left_pad}${C}───[${W} Bash Menu ${C}]───"
-    printf "\n${left_pad}${C}[${W}01${C}]${G} Install/Setup Bash (ble.sh)"
-    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Bash"
-    printf "\n${left_pad}${C}[${W}03${C}]${G} Customize Prompt & Welcome Banner"
-    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
-    echo -ne "${left_pad}${C}Selection: ${RS}"
-    read choice
-    case $choice in
-        01) do_bash_setup ;;
-        02) do_bash_switch ;;
-        03) do_customize_prompts_menu "bash" ;;
-        00) menu ;;
-        *) echo -e "${R}[!] Invalid option${RS}"; sleep 1; bash_menu ;;
+    echo -e "${G}[√] ${shell} prompt & welcome banner set up successfully!${RS}"
+    sleep 2
+    case $shell in
+        bash) bash_menu ;;
+        zsh) zsh_menu ;;
+        fish) fish_menu ;;
     esac
 }
 
+# Fonts Downloader Engine
+do_install_font() {
+    local font_zip=$1
+    local font_name=$2
+    
+    ensure_dependencies
+    
+    local temp_zip="$HOME/.termux/temp_font.zip"
+    mkdir -p "$HOME/.termux"
+    
+    echo -e "${Y}[*] Downloading ${font_name} Nerd Font...${RS}"
+    curl -L "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/${font_zip}" -o "${temp_zip}"
+    if [ $? -ne 0 ] || [ ! -f "${temp_zip}" ]; then
+        echo -e "${R}[!] Download failed. Check internet connection.${RS}"
+        sleep 2
+        font_menu
+        return
+    fi
+    echo -e "${Y}[*] Extracting ${font_name}...${RS}"
+    local extract_dir="$HOME/.termux/temp_extract"
+    rm -rf "$extract_dir"
+    mkdir -p "$extract_dir"
+    
+    unzip -o -q "${temp_zip}" "*.ttf" -d "$extract_dir"
+    
+    local font_files=()
+    while IFS= read -r line; do
+        [ -n "$line" ] && font_files+=("$line")
+    done < <(find "$extract_dir" -type f -name "*.ttf" | sort)
+    
+    local num_files=${#font_files[@]}
+    if [ $num_files -eq 0 ]; then
+        echo -e "${R}[!] Could not find any ttf files inside font zip.${RS}"
+        rm -rf "$extract_dir"
+        rm -f "${temp_zip}"
+        sleep 2
+        font_menu
+        return
+    fi
+    
+    local chosen_font=""
+    if [ $num_files -eq 1 ]; then
+        chosen_font="${font_files[0]}"
+    else
+        banner
+        printf "\n${left_pad}${C}───[${W} Select Font Variant (${font_name}) ${C}]───\n"
+        local idx=1
+        for f in "${font_files[@]}"; do
+            local name=$(basename "$f")
+            printf "\n${left_pad}${C}[${W}%02d${C}]${G} %s" $idx "$name"
+            idx=$((idx + 1))
+        done
+        printf "\n\n${left_pad}${C}Selection (Default: 1): ${RS}"
+        read variant_sel
+        [ -z "$variant_sel" ] && variant_sel=1
+        
+        if ! [[ "$variant_sel" =~ ^[0-9]+$ ]] || [ "$variant_sel" -lt 1 ] || [ "$variant_sel" -gt $num_files ]; then
+            variant_sel=1
+        fi
+        chosen_font="${font_files[$((variant_sel - 1))]}"
+    fi
+    
+    if [ -n "$chosen_font" ] && [ -f "$chosen_font" ]; then
+        mv "$chosen_font" "$HOME/.termux/font.ttf"
+        rm -rf "$extract_dir"
+        rm -f "${temp_zip}"
+        if command -v termux-reload-settings &>/dev/null; then
+            termux-reload-settings
+        fi
+        echo -e "${G}[√] ${font_name} variant installed successfully!${RS}"
+    else
+        echo -e "${R}[!] Selection failed.${RS}"
+        rm -rf "$extract_dir"
+        rm -f "${temp_zip}"
+    fi
+    sleep 2
+    font_menu
+}
+
+# Settings Configurator (`termux.properties` editor)
+set_property() {
+    local key=$1
+    local val=$2
+    local file="$HOME/.termux/termux.properties"
+    mkdir -p "$HOME/.termux"
+    touch "$file"
+    sed -i "/^[[:space:]]*${key}[[:space:]]*=/d" "$file"
+    echo "${key} = ${val}" >> "$file"
+    if command -v termux-reload-settings &>/dev/null; then
+        termux-reload-settings
+    fi
+}
+
+configure_cursor_style() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Cursor Style ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Underline (Default)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Block"
+    printf "\n${left_pad}${C}[${W}3${C}]${G} Bar\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read style_sel
+    case $style_sel in
+        2) set_property "terminal-cursor-style" "block" ;;
+        3) set_property "terminal-cursor-style" "bar" ;;
+        *) set_property "terminal-cursor-style" "underline" ;;
+    esac
+    echo -e "${G}[√] Cursor style updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+configure_cursor_blink() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Cursor Blinking ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Enable Blinking (Default)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Disable Blinking\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read blink_sel
+    case $blink_sel in
+        2) set_property "terminal-cursor-blink-rate" "0" ;;
+        *) set_property "terminal-cursor-blink-rate" "600" ;;
+    esac
+    echo -e "${G}[√] Cursor blinking updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+configure_extra_keys() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Extra Keys Presets ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Default (Developer compact)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Full Navigation (Arrows, ESC, TAB, DEL)"
+    printf "\n${left_pad}${C}[${W}3${C}]${G} Minimalist Layout"
+    printf "\n${left_pad}${C}[${W}4${C}]${G} Hidden / Disabled\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read key_sel
+    case $key_sel in
+        2) set_property "extra-keys" "[['ESC','TAB','-','/','*','UP','DEL'],['CTRL','ALT','LEFT','DOWN','RIGHT','ENTER','HOME']]" ;;
+        3) set_property "extra-keys" "[['ESC','TAB','CTRL','ALT','UP','LEFT','DOWN','RIGHT']]" ;;
+        4) set_property "extra-keys" "[]" ;;
+        *) set_property "extra-keys" "[['/','ls','\$','~','UP','exit','*'],['ex','CTRL','ENTER','LEFT','DOWN','RIGHT','F2']]" ;;
+    esac
+    echo -e "${G}[√] Extra keys keyboard preset updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+configure_bell_char() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Bell Character ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Vibrate on alert (Default)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Ignore (Silent)"
+    printf "\n${left_pad}${C}[${W}3${C}]${G} Beep (Ringtone)\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read bell_sel
+    case $bell_sel in
+        2) set_property "bell-character" "ignore" ;;
+        3) set_property "bell-character" "beep" ;;
+        *) set_property "bell-character" "vibrate" ;;
+    esac
+    echo -e "${G}[√] Bell character setting updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+configure_fullscreen() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Fullscreen Mode ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Normal Screen (Default)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Fullscreen at Startup\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read fs_sel
+    case $fs_sel in
+        2) set_property "fullscreen" "true" ;;
+        *) set_property "fullscreen" "false" ;;
+    esac
+    echo -e "${G}[√] Fullscreen launch setting updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+configure_back_key() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Configure Back-Key Action ${C}]───"
+    printf "\n${left_pad}${C}[${W}1${C}]${G} Escape (Triggers ESC key - Default)"
+    printf "\n${left_pad}${C}[${W}2${C}]${G} Back (Normal Android Back action)\n\n"
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read bk_sel
+    case $bk_sel in
+        2) set_property "back-key" "back" ;;
+        *) set_property "back-key" "escape" ;;
+    esac
+    echo -e "${G}[√] Back-key behavior updated!${RS}"
+    sleep 1.5
+    termux_properties_menu
+}
+
+termux_properties_menu() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Termux Settings & Behavior ${C}]───"
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Cursor Style"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Cursor Blinking"
+    printf "\n${left_pad}${C}[${W}03${C}]${G} Extra Keys Keyboard Rows"
+    printf "\n${left_pad}${C}[${W}04${C}]${G} Bell Character Sound/Vibrate"
+    printf "\n${left_pad}${C}[${W}05${C}]${G} Fullscreen Mode"
+    printf "\n${left_pad}${C}[${W}06${C}]${G} Back-Key Action"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read a
+    case $a in
+        1|01) configure_cursor_style ;;
+        2|02) configure_cursor_blink ;;
+        3|03) configure_extra_keys ;;
+        4|04) configure_bell_char ;;
+        5|05) configure_fullscreen ;;
+        6|06) configure_back_key ;;
+        0|00) menu ;;
+        *) termux_properties_menu ;;
+    esac
+}
+
+font_menu() {
+    banner
+    printf "\n${left_pad}${C}───[${W} Termux Nerd Fonts Gallery ${C}]───"
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Fira Code Nerd Font"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} JetBrains Mono Nerd Font"
+    printf "\n${left_pad}${C}[${W}03${C}]${G} Hack Nerd Font"
+    printf "\n${left_pad}${C}[${W}04${C}]${G} Caskaydia Cove Nerd Font (Cascadia Code)"
+    printf "\n${left_pad}${C}[${W}05${C}]${G} Sauce Code Pro Nerd Font (Source Code Pro)"
+    printf "\n${left_pad}${C}[${W}06${C}]${G} Ubuntu Nerd Font"
+    printf "\n${left_pad}${C}[${W}07${C}]${G} Meslo Nerd Font"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read a
+    case $a in
+        1|01) do_install_font "FiraCode.zip" "Fira Code" ;;
+        2|02) do_install_font "JetBrainsMono.zip" "JetBrains Mono" ;;
+        3|03) do_install_font "Hack.zip" "Hack" ;;
+        4|04) do_install_font "CascadiaCode.zip" "Caskaydia Cove" ;;
+        5|05) do_install_font "SourceCodePro.zip" "Sauce Code Pro" ;;
+        6|06) do_install_font "Ubuntu.zip" "Ubuntu" ;;
+        7|07) do_install_font "Meslo.zip" "Meslo" ;;
+        0|00) menu ;;
+        *) font_menu ;;
+    esac
+}
+
+# Updates and Security Settings
+do_add_lock() {
+    echo -e "\n${C}Initialising Security Protocol...${RS}"
+    echo -ne "${Y}Create Access Key: ${RS}"
+    read -s new_pass
+    echo
+    
+    new_pass_hash=$(echo -n "$new_pass" | sha256sum | cut -d' ' -f1)
+    
+    lock_code="#LOCK_START
+clear
+echo -e '\033[1;32m'
+echo '  System check...'
+sleep 0.2
+echo '  Encrypted link established.'
+sleep 0.2
+clear
+attempt=1
+while [ \$attempt -le 3 ]; do
+    echo -e \"\n${C}╔══════════════════════════════════════╗\"
+    echo -e \"║        ${R}SECURE SHELL ACCESS           ${C}║\"
+    echo -e \"╚══════════════════════════════════════╝${RS}\"
+    echo -ne \"${Y} [Attempt \$attempt/3] Enter Key: ${RS}\"
+    read -s pass_input
+    echo
+    entered_hash=\$(echo -n \"\$pass_input\" | sha256sum | cut -d' ' -f1)
+    if [ \"\$entered_hash\" = \"$new_pass_hash\" ]; then
+        echo -e \"${G} ACCESS GRANTED.${RS}\"
+        sleep 1
+        clear
+        break
+    else
+        echo -e \"${R} DENIED.${RS}\"
+        if [ \$attempt -eq 3 ]; then
+            exit
+        fi
+        attempt=\$((attempt + 1))
+    fi
+done
+#LOCK_END"
+
+    lock_code_fish="#LOCK_START
+function prepend_lock --on-event fish_prompt
+    clear
+    echo -e '\033[1;32m'
+    echo '  System check...'
+    sleep 0.2
+    echo '  Encrypted link established.'
+    sleep 0.2
+    clear
+    set attempt 1
+    while test \$attempt -le 3
+        echo -e \"\n${C}╔══════════════════════════════════════╗\"
+        echo -e \"║        ${R}SECURE SHELL ACCESS           ${C}║\"
+        echo -e \"╚══════════════════════════════════════╝${RS}\"
+        set_color --bold yellow
+        read -P \" [Attempt \$attempt/3] Enter Key: \" -s pass_input
+        set_color normal
+        echo
+        set entered_hash (echo -n \"\$pass_input\" | sha256sum | cut -d' ' -f1)
+        if test \"\$entered_hash\" = \"$new_pass_hash\"
+            echo -e \"${G} ACCESS GRANTED.${RS}\"
+            sleep 1
+            clear
+            if test -f ~/.termux-os-banner.sh
+                bash ~/.termux-os-banner.sh
+            end
+            break
+        else
+            echo -e \"${R} DENIED.${RS}\"
+            if test \$attempt -eq 3
+                exit
+            end
+            set attempt (math \$attempt + 1)
+        end
+    end
+    functions -e prepend_lock
+end
+#LOCK_END"
+
+    add_to_top() {
+        local file=$1
+        local code=$2
+        if [ -f "$file" ]; then
+            echo "$code" > "$file.tmp"
+            cat "$file" >> "$file.tmp"
+            mv "$file.tmp" "$file"
+        else
+            echo "$code" > "$file"
+        fi
+    }
+
+    add_to_top ~/.bashrc "$lock_code"
+    [ -f ~/.zshrc ] && add_to_top ~/.zshrc "$lock_code"
+    [ -f ~/.config/fish/config.fish ] && add_to_top ~/.config/fish/config.fish "$lock_code_fish"
+
+    echo -e "${G}Lock Configured at the TOP of files.${RS}"
+    sleep 2
+    system_menu
+}
+
+do_remove_lock() {
+    sed -i '/#LOCK_START/,/#LOCK_END/d' ~/.bashrc
+    [ -f ~/.zshrc ] && sed -i '/#LOCK_START/,/#LOCK_END/d' ~/.zshrc
+    [ -f ~/.config/fish/config.fish ] && sed -i '/#LOCK_START/,/#LOCK_END/d' ~/.config/fish/config.fish
+    echo -e "${R}Security Protocol Deactivated.${RS}"
+    sleep 2
+    system_menu
+}
+
+do_update() {
+    banner
+    echo -e "${Y}[*] Checking for updates from repository...${RS}"
+    git -C "$REPO_DIR" fetch origin
+    local LOCAL_COMMIT=$(git -C "$REPO_DIR" rev-parse HEAD)
+    local REMOTE_COMMIT=$(git -C "$REPO_DIR" rev-parse "origin/master" 2>/dev/null || git -C "$REPO_DIR" rev-parse "origin/main")
+    if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ]; then
+        echo -e "${G}[√] You are already on the latest version.${RS}"
+        sleep 2
+        system_menu
+    else
+        echo -e "${Y}[*] Updating repository to latest commit...${RS}"
+        git -C "$REPO_DIR" pull
+        if [ $? -eq 0 ]; then
+            echo -e "${G}[√] Update completed successfully! Reloading script...${RS}"
+            sleep 2
+            exec bash "$REPO_DIR/os.sh"
+        else
+            echo -e "${R}[!] Update failed. Please check network/git.${RS}"
+            sleep 2
+            system_menu
+        fi
+    fi
+}
+
+check_for_updates() {
+    local DIR="$REPO_DIR"
+    local branch
+    local FETCH_STATUS
+    local LOCAL_COMMIT
+    local REMOTE_COMMIT
+
+    [ ! -d "$DIR/.git" ] && return
+
+    branch=$(git -C "$DIR" branch --show-current)
+
+    echo -ne "${Y}[...]${RS} Checking for updates..."
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 3 git -C "$DIR" fetch origin "$branch" >/dev/null 2>&1
+        FETCH_STATUS=$?
+    else
+        git -C "$DIR" fetch origin "$branch" >/dev/null 2>&1
+        FETCH_STATUS=$?
+    fi
+
+    if [ $FETCH_STATUS -ne 0 ]; then
+        echo -e "\r${Y}[!]${RS} Update check skipped (offline)"
+        sleep 1
+        echo -ne "\r\033[K"
+        return
+    fi
+
+    LOCAL_COMMIT=$(git -C "$DIR" rev-parse HEAD)
+    REMOTE_COMMIT=$(git -C "$DIR" rev-parse "origin/$branch")
+
+    if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ] &&
+       git -C "$DIR" merge-base --is-ancestor "$LOCAL_COMMIT" "$REMOTE_COMMIT"; then
+
+        echo -e "\r${G}[!]${RS} A new version is available!"
+        echo -e "    Local  version: ${Y}${LOCAL_COMMIT:0:7}${RS}"
+        echo -e "    Latest version: ${G}${REMOTE_COMMIT:0:7}${RS}"
+        echo
+
+        echo -ne "${C}[?]${RS} Update now? (y/N): "
+        read -r auto_update
+
+        if [[ "$auto_update" =~ ^[yY]$ ]]; then
+            git -C "$DIR" pull origin "$branch"
+            if [ $? -eq 0 ]; then
+                echo -e "${G}[√] Update completed successfully! Reloading script...${RS}"
+                sleep 2
+                exec bash "$DIR/os.sh"
+            else
+                echo -e "${R}[!] Update failed. Please check network/git.${RS}"
+                sleep 2
+            fi
+        fi
+        return
+    fi
+    echo -ne "\r\033[K"
+}
+
+# Color Theme Installer Engine
+do_set_theme() {
+    local theme=$1
+    local theme_file="$REPO_DIR"/.object/.colors_"${theme}".properties
+    if [ -f "$theme_file" ]; then
+        mkdir -p ~/.termux
+        rm -f ~/.termux/colors.properties
+        cp "$theme_file" ~/.termux/colors.properties
+        if command -v termux-reload-settings &>/dev/null; then
+            termux-reload-settings
+        fi
+        echo -e "${G}Applied ${theme} theme successfully!${RS}"
+    else
+        echo -e "${R}Theme file not found: ${theme_file}${RS}"
+    fi
+    sleep 2
+    color_theme_menu
+}
+
+# Sub-menus
 zsh_menu() {
     banner
-    printf "\n${left_pad}${C}───[${W} Zsh Menu ${C}]───"
-    printf "\n${left_pad}${C}[${W}01${C}]${G} Install/Setup Zsh (Oh My Zsh)"
-    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Zsh"
-    printf "\n${left_pad}${C}[${W}03${C}]${G} Customize Prompt & Welcome Banner"
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Full Zsh Setup (Oh My Zsh + Custom Theme)"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Zsh Shell"
+    printf "\n${left_pad}${C}[${W}03${C}]${Y} Customize Prompt & Welcome Banner"
+    printf "\n${left_pad}${C}───"
     printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
     echo -ne "${left_pad}${C}Selection: ${RS}"
-    read choice
-    case $choice in
-        01) do_zsh_setup ;;
-        02) do_zsh_switch ;;
-        03) do_customize_prompts_menu "zsh" ;;
-        00) menu ;;
-        *) echo -e "${R}[!] Invalid option${RS}"; sleep 1; zsh_menu ;;
+    read a
+    case $a in
+        1|01) do_zsh_setup ;;
+        2|02) do_zsh_switch ;;
+        3|03) do_customize_prompts_menu "zsh" ;;
+        0|00) menu ;;
+        *) zsh_menu ;;
+    esac
+}
+
+bash_menu() {
+    banner
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Full Bash Setup (ble.sh + Custom Theme)"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Bash Shell"
+    printf "\n${left_pad}${C}[${W}03${C}]${Y} Customize Prompt & Welcome Banner"
+    printf "\n${left_pad}${C}───"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read a
+    case $a in
+        1|01) do_bash_setup ;;
+        2|02) do_bash_switch ;;
+        3|03) do_customize_prompts_menu "bash" ;;
+        0|00) menu ;;
+        *) bash_menu ;;
     esac
 }
 
 fish_menu() {
     banner
-    printf "\n${left_pad}${C}───[${W} Fish Menu ${C}]───"
-    printf "\n${left_pad}${C}[${W}01${C}]${G} Install/Setup Fish"
-    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Fish"
-    printf "\n${left_pad}${C}[${W}03${C}]${G} Customize Prompt & Welcome Banner"
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Full Fish Setup (config + Custom Theme)"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Switch to Fish Shell"
+    printf "\n${left_pad}${C}[${W}03${C}]${Y} Customize Prompt & Welcome Banner"
+    printf "\n${left_pad}${C}───"
     printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
     echo -ne "${left_pad}${C}Selection: ${RS}"
-    read choice
-    case $choice in
-        01) do_fish_setup ;;
-        02) do_fish_switch ;;
-        03) do_customize_prompts_menu "fish" ;;
-        00) menu ;;
-        *) echo -e "${R}[!] Invalid option${RS}"; sleep 1; fish_menu ;;
+    read a
+    case $a in
+        1|01) do_fish_setup ;;
+        2|02) do_fish_switch ;;
+        3|03) do_customize_prompts_menu "fish" ;;
+        0|00) menu ;;
+        *) fish_menu ;;
+    esac
+}
+
+system_menu() {
+    banner
+    printf "\n${left_pad}${C}[${W}01${C}]${B} Add Cyber Lock ${R}(Top Security)"
+    printf "\n${left_pad}${C}[${W}02${C}]${R} Remove Lock"
+    printf "\n${left_pad}${C}[${W}03${C}]${W} Update Script"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read a
+    case $a in
+        1|01) do_add_lock    ;;
+        2|02) do_remove_lock ;;
+        3|03) do_update      ;;
+        0|00) menu ;;
+        *) system_menu ;;
+    esac
+}
+
+color_theme_menu() {
+    banner
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Default (Gunmetal)"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Dracula Theme"
+    printf "\n${left_pad}${C}[${W}03${C}]${G} Nord Theme"
+    printf "\n${left_pad}${C}[${W}04${C}]${G} Monokai Theme"
+    printf "\n${left_pad}${C}[${W}05${C}]${G} Solarized Dark Theme"
+    printf "\n${left_pad}${C}[${W}06${C}]${G} Gruvbox Theme"
+    printf "\n${left_pad}${C}[${W}07${C}]${G} Tokyo Night Theme"
+    printf "\n${left_pad}${C}[${W}08${C}]${G} Catppuccin Theme"
+    printf "\n${left_pad}${C}[${W}09${C}]${G} Ayu Dark Theme"
+    printf "\n${left_pad}${C}[${W}10${C}]${G} Cobalt2 Theme"
+    printf "\n${left_pad}${C}[${W}11${C}]${G} One Half Dark Theme"
+    printf "\n${left_pad}${C}───"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Back to Main Menu\n\n"
+    
+    echo -ne "${left_pad}${C}Selection: ${RS}"
+    read a
+    case $a in
+        1|01) do_set_theme "default" ;;
+        2|02) do_set_theme "dracula" ;;
+        3|03) do_set_theme "nord" ;;
+        4|04) do_set_theme "monokai" ;;
+        5|05) do_set_theme "solarized" ;;
+        6|06) do_set_theme "gruvbox" ;;
+        7|07) do_set_theme "tokyonight" ;;
+        8|08) do_set_theme "catppuccin" ;;
+        9|09) do_set_theme "ayu" ;;
+        10) do_set_theme "cobalt2" ;;
+        11) do_set_theme "onehalf" ;;
+        0|00) menu ;;
+        *) color_theme_menu ;;
     esac
 }
 
 menu() {
     banner
-    printf "\n${left_pad}${C}───[${W} Main Menu ${C}]───"
-    printf "\n${left_pad}${C}[${W}01${C}]${G} Full Setup (Dependencies + Configs)"
-    printf "\n${left_pad}${C}[${W}02${C}]${G} Bash Management"
-    printf "\n${left_pad}${C}[${W}03${C}]${G} Zsh Management"
-    printf "\n${left_pad}${C}[${W}04${C}]${G} Fish Management"
-    printf "\n${left_pad}${C}[${W}05${C}]${G} Reload Termux Settings"
-    printf "\n${left_pad}${C}[${W}06${C}]${G} View Current Setup Info"
-    printf "\n${left_pad}${C}[${W}00${C}]${R} Exit\n\n"
+    printf "\n${left_pad}${C}[${W}01${C}]${G} Necessary Setup"
+    printf "\n${left_pad}${C}[${W}02${C}]${G} Zsh Customizer"
+    printf "\n${left_pad}${C}[${W}03${C}]${G} Fish Customizer"
+    printf "\n${left_pad}${C}[${W}04${C}]${G} Bash Customizer"
+    printf "\n${left_pad}${C}[${W}05${C}]${B} Termux Nerd Fonts"
+    printf "\n${left_pad}${C}[${W}06${C}]${Y} Termux Color Themes"
+    printf "\n${left_pad}${C}[${W}07${C}]${C} Termux Behavior Settings"
+    printf "\n${left_pad}${C}[${W}08${C}]${W} Security & Updates"
+    printf "\n${left_pad}${C}[${W}00${C}]${R} Exit Terminal\n\n"
+    
     echo -ne "${left_pad}${C}Selection: ${RS}"
-    read choice
-    case $choice in
-        01) do_full_setup ;;
-        02) bash_menu ;;
-        03) zsh_menu ;;
-        04) fish_menu ;;
-        05) 
-            if command -v termux-reload-settings &>/dev/null; then
-                termux-reload-settings
-                echo -e "${G}[√] Settings reloaded${RS}"
-            else
-                echo -e "${R}[!] termux-reload-settings not found${RS}"
-            fi
-            sleep 2
-            menu
-            ;;
-        06)
-            clear
-            echo -e "${C}=== Current Setup Info ===${RS}"
-            echo -e "${Y}Shell:${RS} $SHELL"
-            echo -e "${Y}Termux:${RS} ${TERMUX_VERSION:-unknown}"
-            echo -e "${Y}PREFIX:${RS} ${PREFIX:-not set}"
-            echo -e "${Y}User:${RS} ${USER:-$(id -un)}"
-            echo ""
-            echo -e "${C}Installed Tools:${RS}"
-            for cmd in bash zsh fish git figlet toilet lolcat ruby bat eza curl wget; do
-                if command -v "$cmd" &>/dev/null; then
-                    echo -e "  ${G}[✓]${RS} $cmd"
-                else
-                    echo -e "  ${R}[✗]${RS} $cmd"
-                fi
-            done
-            echo ""
-            read -p "Press Enter to return to menu..."
-            menu
-            ;;
-        00) 
-            echo -e "${G}Goodbye!${RS}"
-            exit 0
-            ;;
-        *) 
-            echo -e "${R}[!] Invalid option${RS}"
-            sleep 1
-            menu
-            ;;
+    read a
+    case $a in
+        1|01) do_full_setup ;;
+        2|02) zsh_menu ;;
+        3|03) fish_menu ;;
+        4|04) bash_menu ;;
+        5|05) font_menu ;;
+        6|06) color_theme_menu ;;
+        7|07) termux_properties_menu ;;
+        8|08) system_menu ;;
+        0|00) exit ;;
+        *) menu ;;
     esac
 }
 
-# Entry point
-if [ -z "$TERMUX_VERSION" ] && [ ! -d /data/data/com.termux ]; then
-    echo -e "${Y}[!] Warning: This script is optimized for Termux.${RS}"
-    echo -e "${Y}[!] Some features may not work on other systems.${RS}"
-    sleep 2
-fi
-
+check_for_updates
 menu

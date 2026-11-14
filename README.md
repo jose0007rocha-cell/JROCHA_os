@@ -72,11 +72,8 @@ Select and dynamically apply any of the 5 curated color themes:
 
 ---
 
-## Theme Preview
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/46929618/150729988-7c0c2a39-fe78-4dc6-8174-1a220e0ee1e5.jpg" width="300">
-</p>
+
 
 ---
 
@@ -188,17 +185,18 @@ After installation, configuration files are stored in:
 - **Termux properties:** `~/.termux/properties`
 - **Cyber Lock config:** `~/.termux/.secure`
 
-### 🔄 Resetting to Defaults
+### 🔄 Resetting to Defaults (Unstall)
 
-To reset your configuration:
+To restore the terminal to how it was before JROCHA, use any of these:
 
 ```bash
-# Backup current config (optional)
-cp ~/.zshrc ~/.zshrc.backup
-
-# Run the installer again and choose default options
-bash os.sh
+unstall            # command installed the first time you open os.sh
+bash os.sh unstall # without opening the menu
 ```
+
+Or open `bash os.sh` and choose **09 - Unstall (Restore Terminal)**.
+
+It removes the banner, prompt theme and Cyber Lock, restores `.bashrc`, `.zshrc`, fish config, Termux colors and extra keys from the copies saved on the first run (`~/.jrocha-backup`), and sets the login shell back to bash. Oh My Zsh, ble.sh and your font are only removed if you answer yes. Use `unstall -y` to skip the questions.
 
 ### 🐛 Troubleshooting
 

@@ -9,6 +9,11 @@ RS='\033[0m'
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# "bash os.sh unstall" restores the terminal without opening the menu
+if [ "$1" = "unstall" ] || [ "$1" = "--unstall" ]; then
+    exec bash "$REPO_DIR/.object/unstall.sh" "${@:2}"
+fi
+
 term_width=$(tput cols)
 BOX_WIDTH=$(( term_width > 60 ? 58 : term_width - 2 ))
 margin=$(( (term_width - BOX_WIDTH) / 2 ))
@@ -51,6 +56,49 @@ banner() {
     echo -e ""
     echo -e "${G} ==============================================${N}"
     echo -e ""
+}
+
+# Keeps ONE copy of your original files (first run only) so unstall can restore them
+JBK="$HOME/.jrocha-backup"
+backup_originals() {
+    mkdir -p "$JBK"
+    local f name
+    for f in "$HOME/.bashrc" "$HOME/.zshrc" "$HOME/.config/fish/config.fish" \
+             "$HOME/.termux/termux.properties" "$HOME/.termux/colors.properties" "$HOME/.termux/font.ttf"; do
+        name=$(basename "$f")
+        if [ -e "$JBK/$name" ] || [ -e "$JBK/$name.none" ]; then continue; fi
+        if [ -f "$f" ]; then
+            # a file already customized by JROCHA is not an "original"
+            grep -aqE 'termux-os-banner|jrocha|JROCHA|#LOCK_START' "$f" && continue
+            # same for settings/colors that are identical to the ones bundled here
+            local b
+            for b in "$REPO_DIR"/.object/.termux.properties "$REPO_DIR"/.object/.colors*.properties; do
+                [ -f "$b" ] && cmp -s "$f" "$b" && continue 2
+            done
+            cp -p "$f" "$JBK/$name"
+        else
+            : > "$JBK/$name.none"
+        fi
+    done
+}
+
+# Installs the "unstall" command (self-contained copy, works without this folder)
+install_unstall_cmd() {
+    local dest="${PREFIX:-/usr/local}/bin/unstall"
+    if [ -f "$REPO_DIR/.object/unstall.sh" ] && [ -w "$(dirname "$dest")" ]; then
+        cp "$REPO_DIR/.object/unstall.sh" "$dest" && chmod +x "$dest"
+    fi
+}
+
+do_unstall() {
+    bash "$REPO_DIR/.object/unstall.sh" --from-menu
+    local rc=$?
+    if [ $rc -eq 0 ]; then
+        exec bash
+    else
+        sleep 1
+        menu
+    fi
 }
 
 ensure_dependencies() {
@@ -1237,6 +1285,7 @@ menu() {
     printf "\n${left_pad}${C}[${W}06${C}]${Y} Termux Color Themes"
     printf "\n${left_pad}${C}[${W}07${C}]${C} Termux Behavior Settings"
     printf "\n${left_pad}${C}[${W}08${C}]${W} Security & Updates"
+    printf "\n${left_pad}${C}[${W}09${C}]${R} Unstall ${W}(Restore Terminal)"
     printf "\n${left_pad}${C}[${W}00${C}]${R} Exit Terminal\n\n"
     
     echo -ne "${left_pad}${C}Selection: ${RS}"
@@ -1250,10 +1299,13 @@ menu() {
         6|06) color_theme_menu ;;
         7|07) termux_properties_menu ;;
         8|08) system_menu ;;
+        9|09) do_unstall ;;
         0|00) exit ;;
         *) menu ;;
     esac
 }
 
+backup_originals
+install_unstall_cmd
 check_for_updates
 menu
